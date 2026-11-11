@@ -42,7 +42,7 @@ jobs:
             yum install -y epel-release &&
             yum-config-manager --enable epel &&
             yum install -y openblas-devel
-          CIBW_TEST_COMMAND: python -c "from zquatev.test_zquatev import test_eigh; test_eigh()"
+          CIBW_TEST_COMMAND: python -c "from zquatev.test_zquatev import test_eigh, test_eigh_blocked; test_eigh(); test_eigh_blocked()"
         run: python -m cibuildwheel --output-dir wheelhouse
       - uses: actions/upload-artifact@v7
         with:
@@ -67,6 +67,8 @@ jobs:
 
   publish:
     needs: [build-wheels, build-sdist]
+    # Forks can build the wheels; only this repository publishes to PyPI.
+    if: github.repository == 'sunqm/zquatev'
     runs-on: ubuntu-latest
     permissions:
       id-token: write

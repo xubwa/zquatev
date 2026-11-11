@@ -1,13 +1,12 @@
 import os
-import re
 import sys
+import shlex
 import platform
 import subprocess
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from setuptools.command.bdist_wheel import bdist_wheel
-from distutils.version import LooseVersion
 
 
 # Based on https://github.com/pybind/cmake_example
@@ -27,15 +26,10 @@ class CMakeExtension(Extension):
 class CMakeBuild(build_ext):
     def run(self):
         try:
-            out = subprocess.check_output(['cmake', '--version'])
+            subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError("CMake must be installed to build the following extensions: " +
                                ", ".join(e.name for e in self.extensions))
-
-        if platform.system() == "Windows":
-            cmake_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-            if cmake_version < '3.1.0':
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
 
         for ext in self.extensions:
             self.build_extension(ext)
@@ -63,6 +57,11 @@ class CMakeBuild(build_ext):
             cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
             build_args += ['--', '-j2']
 
+        # Extra CMake options from the environment (e.g. conda-forge sets
+        # CMAKE_ARGS); placed last so that they override the defaults above,
+        # such as -DBLA_VENDOR=OpenBLAS instead of Apple on macOS.
+        cmake_args += shlex.split(os.environ.get('CMAKE_ARGS', ''))
+
         env = os.environ.copy()
         env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
                                                               self.distribution.get_version())
@@ -72,7 +71,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
 AUTHOR = ''
-PACKAGE_VERSION = '0.2.2'
+PACKAGE_VERSION = '0.2.3'
 DESCRIPTION = 'Quaternionic matrix diagonalization'
 with open('README', 'r') as f:
     LONG_DESCRIPTION = f.read()
